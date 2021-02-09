@@ -3,4 +3,4 @@ Training a  Multi-Scale Convolutional Neural Network to perform multi-class clas
 The Architecture of the classifier takes inspiration from the 2011 [paper by Pierre Sermanet and Yann LeCun](http://yann.lecun.com/exdb/publis/pdf/sermanet-ijcnn-11.pdf).
 It uses Data Augmentation (shear, rotation, translation, zoom, elastic transform, gaussian noise) to increase model accuracy.
 
-```Best Accuracy: 98.62%```
+The Best Accuracy achieved is 98.62% on the test set (```classifier.h5```) and is near human perfomance (recorded at 98.8% for this dataset). 
