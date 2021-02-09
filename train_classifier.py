@@ -16,6 +16,34 @@ from keras.callbacks import ModelCheckpoint
 from matplotlib.image import imread
 import pyfastnoisesimd as fns
 
+def add_noise(img):
+    img_shape = img.shape
+    std = np.random.uniform(0.0, 0.06)
+    return img + np.random.normal(0, std, img_shape)
+
+def elastic_transform(img, strength, frequency, octaves, lacunarity):
+    img_shape = img.shape
+    perlin = fns.Noise(seed=np.random.randint(0, 2**31))
+    perlin.frequency = frequency
+    perlin.noiseType = fns.NoiseType.PerlinFractal
+    perlin.fractal.octaves = octaves
+    perlin.fractal.lacunarity = lacunarity
+    sdx, sdy = perlin.genAsGrid((img_shape[0], img_shape[1]))*strength, perlin.genAsGrid((img_shape[0], img_shape[1]))*strength
+    x_grid, y_grid = np.meshgrid(np.arange(img_shape[1]), np.arange(img_shape[0]))
+    remap_y, remap_x = y_grid.astype('float32') + sdy, x_grid.astype('float32') + sdx
+    for i in range(img_shape[2]):
+        img[:,:,i] = cv2.remap(img[:,:,i], remap_x, remap_y, cv2.INTER_CUBIC)
+    return img
+
+def function(img):
+    result = add_noise(img)
+    strength = np.random.uniform(1, 4)
+    frequency = np.random.uniform(0.02, 0.09)
+    octaves = 3
+    lacunarity = 2.0
+    result = elastic_transform(result, strength=strength, frequency=frequency, octaves=octaves, lacunarity=lacunarity)
+    return result
+
 def cnn_model(l2_conv=0.0, l2_dense=0.0):
    
     main_input = Input(shape=(32, 32, 3), dtype='float32', name='main_input')
@@ -77,47 +105,46 @@ for i in range(num_train_images):
     y[i][class_id] = 1
     print('\r'+'['+str(i+1)+'/'+str(num_train_images)+']',end="")
 
-X_train, X_val, y_train, y_val = train_test_split(X,y, test_size=0.3, random_state=seed)
+X_train, X_val, y_train, y_val = train_test_split(X,y, test_size=0.25, random_state=seed)
 
 generator_train = tf.keras.preprocessing.image.ImageDataGenerator(shear_range=0.25,
                                                             zoom_range=0.2,
                                                             rotation_range=15,
                                                             width_shift_range=5,
                                                             height_shift_range=5,
-                                                            fill_mode='reflect'
+                                                            fill_mode='reflect',
+                                                            preprocessing_function=function
 )
 generator_val = tf.keras.preprocessing.image.ImageDataGenerator()
 
 train_gen = generator_train.flow(X_train, y_train)
 val_gen = generator_val.flow(X_val, y_val)
 
-batchSize = 64
+batchSize = 128
 num_train = len(X_train)
 num_val = len(X_val)
-classifier = cnn_model(l2_conv=0.0005)
+classifier = cnn_model(l2_conv=0.0002)
 classifier.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['accuracy'])
 classifier.fit(train_gen,
                 steps_per_epoch = (num_train/batchSize),
-                epochs = 50,
+                epochs = 100,
                 validation_data = val_gen,
                 validation_steps = (num_val/batchSize))
 
 #Fine Tuning
 sgd = tf.keras.optimizers.SGD(
-    learning_rate=0.00002, momentum=0.9, nesterov=False
+    learning_rate=0.00005, momentum=0.9, nesterov=False
 )
 
 
 save_path = './classifier.h5'
 check_pointer = ModelCheckpoint(save_path, save_best_only=True, monitor="val_loss")
 
-batchSize = 256
+batchSize = 512
 classifier.compile(optimizer = sgd, loss = 'categorical_crossentropy', metrics = ['accuracy'])
 classifier.fit(train_gen,
                 steps_per_epoch = (num_train/batchSize),
-                epochs = 30,
+                epochs = 100,
                 validation_data = val_gen,
                 validation_steps = (num_val/batchSize),
                 callbacks=[check_pointer])
-
-
