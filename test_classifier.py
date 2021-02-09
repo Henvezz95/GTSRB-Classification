@@ -5,7 +5,7 @@ import tensorflow.keras
 import cv2
 from keras.models import load_model
 
-model = load_model('classifier.h5')
+model = load_model('classifier_test.h5')
 
 #Predicting with the test data
 y_test=pd.read_csv("./Test.csv")
@@ -32,4 +32,4 @@ y_pred = np.argmax(y_pred,axis=1)
 
 #Accuracy with the test data
 from sklearn.metrics import accuracy_score
-print(accuracy_score(y_test, y_pred))
+print('Accuracy:',str(accuracy_score(y_test, y_pred)*100)+'%')
