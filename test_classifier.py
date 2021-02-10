@@ -3,9 +3,9 @@ import pandas as pd
 import tensorflow as tf
 import tensorflow.keras
 import cv2
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 
-model = load_model('classifier_test.h5')
+model = load_model('classifier.h5')
 
 #Predicting with the test data
 y_test=pd.read_csv("./Test.csv")

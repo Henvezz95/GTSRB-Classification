@@ -3,15 +3,15 @@ import numpy as np
 import pandas as pd 
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from keras.layers import Conv2D, MaxPooling2D, Flatten, LeakyReLU, Dense, Dropout, Input, BatchNormalization, concatenate, Activation 
-from keras.callbacks import EarlyStopping
-from keras.models import Sequential, Model
-from keras.regularizers import l2
-from keras import backend as K
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, LeakyReLU, Dense, Dropout, Input, BatchNormalization, concatenate, Activation 
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras import backend as K
 from PIL import Image
 from glob import glob
 from sklearn.model_selection import train_test_split
-from keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ModelCheckpoint
 
 from matplotlib.image import imread
 import pyfastnoisesimd as fns
@@ -107,12 +107,12 @@ for i in range(num_train_images):
 
 X_train, X_val, y_train, y_val = train_test_split(X,y, test_size=0.25, random_state=seed)
 
-generator_train = tf.keras.preprocessing.image.ImageDataGenerator(shear_range=0.25,
-                                                            zoom_range=0.2,
-                                                            rotation_range=15,
-                                                            width_shift_range=5,
-                                                            height_shift_range=5,
-                                                            fill_mode='reflect',
+generator_train = tf.keras.preprocessing.image.ImageDataGenerator(shear_range=0.2,
+                                                            zoom_range=0.15,
+                                                            rotation_range=10,
+                                                            width_shift_range=4,
+                                                            height_shift_range=4,
+#                                                            fill_mode='reflect',
                                                             preprocessing_function=function
 )
 generator_val = tf.keras.preprocessing.image.ImageDataGenerator()
@@ -127,7 +127,7 @@ classifier = cnn_model(l2_conv=0.0002)
 classifier.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['accuracy'])
 classifier.fit(train_gen,
                 steps_per_epoch = (num_train/batchSize),
-                epochs = 100,
+                epochs = 300,
                 validation_data = val_gen,
                 validation_steps = (num_val/batchSize))
 
@@ -144,7 +144,7 @@ batchSize = 512
 classifier.compile(optimizer = sgd, loss = 'categorical_crossentropy', metrics = ['accuracy'])
 classifier.fit(train_gen,
                 steps_per_epoch = (num_train/batchSize),
-                epochs = 100,
+                epochs = 300,
                 validation_data = val_gen,
                 validation_steps = (num_val/batchSize),
                 callbacks=[check_pointer])
