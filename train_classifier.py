@@ -86,26 +86,39 @@ train_paths = glob('Train/*/*.png')
 num_train_images = len(train_paths)
 num_classes = len(os.listdir('Train/'))
 
-X = np.zeros((num_train_images, 32, 32, 3), dtype=np.float32)
-y = np.zeros((num_train_images, num_classes), dtype=np.float32)
+X_train, X_val = [], []
+y_train, y_val = [], []
 
-for i in range(num_train_images):
-    img = cv2.imread(train_paths[i])
-    img = cv2.resize(img, (32,32), cv2.INTER_CUBIC)
+j=0
+for folder in os.listdir('Train/'):
+    paths_folder = glob('Train/'+folder+'/*.png')
+    num_images_folder = len(paths_folder)
+    train_fraction = 0.75
+    num_train_images_folder = train_fraction*num_images_folder
+    for i in range(num_images_folder):
+        img = cv2.imread(paths_folder[i])
+        img = cv2.resize(img, (32,32), cv2.INTER_CUBIC)
 
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-    lab_planes = cv2.split(lab)
-    clahe = cv2.createCLAHE(clipLimit=10.0,tileGridSize=(4,4))
-    lab_planes[0] = clahe.apply(lab_planes[0])
-    lab = cv2.merge(lab_planes)
-    bgr = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-    X[i] = bgr/255.0
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        lab_planes = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=10.0,tileGridSize=(4,4))
+        lab_planes[0] = clahe.apply(lab_planes[0])
+        lab = cv2.merge(lab_planes)
+        bgr = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        class_id = int(folder)
+        label = np.zeros((num_classes))
+        label[class_id] = 1
+        if i<num_train_images_folder:
+            X_train.append(bgr/255.0) 
+            y_train.append(label)
+        else:
+            X_val.append(bgr/255.0) 
+            y_val.append(label)
+        j+=1
+        print('\r'+'['+str(j)+'/'+str(num_train_images)+']',end="")
 
-    class_id = int(os.path.basename(os.path.dirname(train_paths[i])))
-    y[i][class_id] = 1
-    print('\r'+'['+str(i+1)+'/'+str(num_train_images)+']',end="")
-
-X_train, X_val, y_train, y_val = train_test_split(X,y, test_size=0.25, random_state=seed)
+X_train, X_val = np.array(X_train, dtype=np.float32),  np.array(X_val, dtype=np.float32)
+y_train, y_val = np.array(y_train, dtype=np.float32),  np.array(y_val, dtype=np.float32)
 
 generator_train = tf.keras.preprocessing.image.ImageDataGenerator(shear_range=0.2,
                                                             zoom_range=0.15,
@@ -115,36 +128,36 @@ generator_train = tf.keras.preprocessing.image.ImageDataGenerator(shear_range=0.
 #                                                            fill_mode='reflect',
                                                             preprocessing_function=function
 )
-generator_val = tf.keras.preprocessing.image.ImageDataGenerator()
 
-train_gen = generator_train.flow(X_train, y_train)
-val_gen = generator_val.flow(X_val, y_val)
-
-batchSize = 128
+batchSize = 32
+train_gen = generator_train.flow(X_train, y_train, batch_size=batchSize)
 num_train = len(X_train)
 num_val = len(X_val)
 classifier = cnn_model(l2_conv=0.0002)
 classifier.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['accuracy'])
+
+save_path = './classifier_nontuned.h5'
+check_pointer = ModelCheckpoint(save_path, save_best_only=True, monitor="val_loss")
 classifier.fit(train_gen,
                 steps_per_epoch = (num_train/batchSize),
-                epochs = 300,
-                validation_data = val_gen,
-                validation_steps = (num_val/batchSize))
+                epochs = 50,
+                validation_data = (X_val, y_val),
+                callbacks=[check_pointer]
+                )
 
 #Fine Tuning
 sgd = tf.keras.optimizers.SGD(
     learning_rate=0.00005, momentum=0.9, nesterov=False
 )
 
-
-save_path = './classifier.h5'
+save_path = './classifier_tuned.h5'
 check_pointer = ModelCheckpoint(save_path, save_best_only=True, monitor="val_loss")
 
-batchSize = 512
+batchSize = 256
+train_gen = generator_train.flow(X_train, y_train, batch_size=batchSize)
 classifier.compile(optimizer = sgd, loss = 'categorical_crossentropy', metrics = ['accuracy'])
 classifier.fit(train_gen,
                 steps_per_epoch = (num_train/batchSize),
-                epochs = 300,
-                validation_data = val_gen,
-                validation_steps = (num_val/batchSize),
+                epochs = 30,
+                validation_data = (X_val, y_val),
                 callbacks=[check_pointer])
